@@ -31,8 +31,11 @@ def plot_3d_by_go(pos,mag):
 
 def plot_2d(pos, mag):
     fig, ax = plt.subplots()
+    mag = mag.reshape(-1,3)
+
+    mag = mag/ np.sqrt(mag[:,0]**2+mag[:,1]**2+mag[:,2]**2)
     ax.quiver(pos[:,:,0].reshape(-1), pos[:,:,2].reshape(-1),
-              mag[:,:,0].reshape(-1), mag[:,:,2].reshape(-1), color='tab:blue')
+              mag[:,0].reshape(-1), mag[:,2].reshape(-1), color='tab:blue')
     ax.scatter(pos[:,:,0].reshape(-1), pos[:,:,2].reshape(-1), s=10)
     ax.set_xlabel('x')
     ax.set_ylabel('y')
