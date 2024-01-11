@@ -28,7 +28,7 @@ def main():
     p_s_array = q.rotation(s_array)+p
     b_gt_array = mf_gt.get_bvector(p_s_array)
     b_s_array = np.linalg.inv(q.q_to_r())@b_gt_array
-    # 6. use numerical method to solve the position p from sensor array data.
+    # TODO 6. use numerical method to solve the position p from sensor array data.
     p_c = lm(b_s_array)
 
     # 7. assess and visualize the error

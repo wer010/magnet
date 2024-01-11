@@ -6,86 +6,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pylab as pl
 import matplotlib.pyplot as plt
-
-def lm_func(t,p):
-    """
-
-    Define model function used for nonlinear least squares curve-fitting.
-
-    Parameters
-    ----------
-    t     : independent variable values (assumed to be error-free) (m x 1)
-    p     : parameter values , n = 4 in these examples             (n x 1)
-
-    Returns
-    -------
-    y_hat : curve-fit fctn evaluated at points t and with parameters p (m x 1)
-
-    """
-
-    y_hat = p[0,0]*np.exp(-t/p[1,0]) + p[2,0]*np.sin(t/p[3,0])
-
-    return y_hat
-
-
-def lm_FD_J(t,p,y,dp):
-    """
-
-    Computes partial derivates (Jacobian) dy/dp via finite differences.
-
-    Parameters
-    ----------
-    t  :     independent variables used as arg to lm_func (m x 1)
-    p  :     current parameter values (n x 1)
-    y  :     func(t,p,c) initialised by user before each call to lm_FD_J (m x 1)
-    dp :     fractional increment of p for numerical derivatives
-                - dp(j)>0 central differences calculated
-                - dp(j)<0 one sided differences calculated
-                - dp(j)=0 sets corresponding partials to zero; i.e. holds p(j) fixed
-
-    Returns
-    -------
-    J :      Jacobian Matrix (n x m)
-
-    """
-
-    global func_calls
-
-    # number of data points
-    m = len(y)
-    # number of parameters
-    n = len(p)
-
-    # initialize Jacobian to Zero
-    ps=p
-    J=np.zeros((m,n))
-    del_=np.zeros((n,1))
-
-    # START --- loop over all parameters
-    for j in range(n):
-        # parameter perturbation
-        del_[j,0] = dp[j,0] * (1+abs(p[j,0]))
-        # perturb parameter p(j)
-        p[j,0]   = ps[j,0] + del_[j,0]
-
-        if del_[j,0] != 0:
-            y1 = lm_func(t,p)
-            func_calls = func_calls + 1
-
-            if dp[j,0] < 0:
-                # backwards difference
-                J[:,j] = (y1-y)/del_[j,0]
-            else:
-                # central difference, additional func call
-                p[j,0] = ps[j,0] - del_[j]
-                J[:,j] = (y1-lm_func(t,p)) / (2 * del_[j,0])
-                func_calls = func_calls + 1
-
-        # restore p(j)
-        p[j,0]=ps[j,0]
-
-    return J
-
+# from test_lm import Func
 
 def lm_Broyden_J(p_old,y_old,J,p,y):
     """
@@ -115,7 +36,7 @@ def lm_Broyden_J(p_old,y_old,J,p,y):
 
     return J
 
-def lm_matx(t,p_old,y_old,dX2,J,p,y_dat,weight,dp):
+def lm_matx(x,p_old,y_old,dX2,J,p,y_dat,weight):
     """
     Evaluate the linearized fitting matrix, JtWJ, and vector JtWdy, and
     calculate the Chi-squared error function, Chi_sq used by Levenberg-Marquardt
@@ -149,17 +70,18 @@ def lm_matx(t,p_old,y_old,dX2,J,p,y_dat,weight,dp):
 
     global iteration,func_calls
 
+    W = np.eye(weight.shape[0]) * weight
     # number of parameters
     Npar   = len(p)
 
     # evaluate model using parameters 'p'
-    y_hat = lm_func(t,p)
+    y_hat = lm_func(x,p)
 
     func_calls = func_calls + 1
 
-    if not iteration%(2*Npar) or dX2 > 0:
+    if iteration%(2*Npar)==0 or dX2 > 0:
         # finite difference
-        J = lm_FD_J(t,p,y_hat,dp)
+        J = lm_FD_J(x,p,y_hat)
     else:
         # rank-1 update
         J = lm_Broyden_J(p_old,y_old,J,p,y_hat)
@@ -168,17 +90,17 @@ def lm_matx(t,p_old,y_old,dX2,J,p,y_dat,weight,dp):
     delta_y = (y_dat - y_hat).reshape(-1,1)
 
     # Chi-squared error criteria
-    X2 = delta_y.T @ ( delta_y * weight )
+    error = delta_y.T @ ( W@delta_y )
 
-    JtWJ  = J.T @ ( J * ( weight * np.ones((1,Npar)) ) )
+    JtWJ  = J.T @ (W@J)
 
-    JtWdy = J.T @ ( weight * delta_y )
-
-
-    return JtWJ,JtWdy,X2,y_hat,J
+    JtWdy = J.T @ ( W@delta_y )
 
 
-def lm(p,t,y_dat):
+    return JtWJ, JtWdy, error, y_hat, J
+
+
+def lm(p_init, x, y, lm_func):
     """
 
     Levenberg Marquardt curve-fitting: minimize sum of weighted squared residuals
@@ -203,50 +125,31 @@ def lm(p,t,y_dat):
 
     """
 
-    global iteration, func_calls
+    assert len(x) == len(y), 'The length of x must equal the length of y_dat!'
 
-    # iteration counter
-    iteration  = 0
-    # running count of function evaluations
-    func_calls = 0
-
-    # define eps (not available in python)
-    eps = 2**(-52)
 
     # number of parameters
-    Npar = len(p)
+    Npar = len(p_init)
     # number of data points
-    Npnt = len(y_dat)
+    Npnt = len(y)
     # previous set of parameters
     p_old  = np.zeros((Npar,1))
     # previous model, y_old = y_hat(t,p_old)
     y_old  = np.zeros((Npnt,1))
-    # a really big initial Chi-sq value
-    X2     = 1e-3/eps
-    # a really big initial Chi-sq value
-    X2_old = 1e-3/eps
     # Jacobian matrix
-    J      = np.zeros((Npnt,Npar))
+    J = np.zeros((Npnt,Npar))
     # statistical degrees of freedom
-    DoF    = np.array([[Npnt - Npar + 1]])
+    DoF = Npnt - Npar + 1
 
-
-    if len(t) != len(y_dat):
-        print('The length of t must equal the length of y_dat!')
-        X2 = 0
-        corr_p = 0
-        sigma_p = 0
-        sigma_y = 0
-        R_sq = 0
 
     # weights or a scalar weight value ( weight >= 0 )
-    weight = 1/(y_dat.T@y_dat)
+    weight = 1/(y.T@y)
     # fractional increment of 'p' for numerical derivatives
-    dp = [-0.001]
+    dp = -0.001
     # lower bounds for parameter values
-    p_min = -100*abs(p)
+    p_min = -100*abs(p_init)
     # upper bounds for parameter values
-    p_max = 100*abs(p)
+    p_max = 100*abs(p_init)
 
     MaxIter       = 1000        # maximum number of iterations
     epsilon_1     = 1e-3        # convergence tolerance for gradient
@@ -257,25 +160,11 @@ def lm(p,t,y_dat):
     lambda_DN_fac = 9           # factor for decreasing lambda
     Update_Type   = 1           # 1: Levenberg-Marquardt lambda update, 2: Quadratic update, 3: Nielsen's lambda update equations
 
-    if len(dp) == 1:
-        dp = dp*np.ones((Npar,1))
 
-    idx   = np.arange(len(dp))  # indices of the parameters to be fit
-    stop = 0                    # termination flag
+    # diagonal weights matrix W
+    W = np.eye(Npnt) * weight
 
-    # identical weights vector
-    if np.var(weight) == 0:
-        weight = abs(weight)*np.ones((Npnt,1))
-        print('Using uniform weights for error analysis')
-    else:
-        weight = abs(weight)
 
-    # initialize Jacobian with finite difference calculation
-    JtWJ,JtWdy,X2,y_hat,J = lm_matx(t,p_old,y_old,1,J,p,y_dat,weight,dp)
-    if np.abs(JtWdy).max() < epsilon_1:
-        print('*** Your Initial Guess is Extremely Close to Optimal ***')
-
-    lambda_0 = np.atleast_2d([lambda_0])
 
     # Marquardt: init'l lambda
     if Update_Type == 1:
@@ -285,16 +174,40 @@ def lm(p,t,y_dat):
         lambda_  = lambda_0 * max(np.diag(JtWJ))
         nu=2
 
-    # previous value of X2
-    X2_old = X2
+
     # initialize convergence history
-    cvg_hst = np.ones((MaxIter, Npar+2))
+    cvg_hst = []
+    p = p_init
 
+    iteration=0
+    dX2 = 0
     # -------- Start Main Loop ----------- #
-    while not stop and iteration <= MaxIter:
+    while iteration < MaxIter:
 
-        iteration = iteration + 1
+        lm_func.set_p(p)
+        # evaluate model using parameters 'p'
+        y_hat = lm_func.forward(x)
+        J = lm_func.get_J(x, y_hat)
+        # TODO
+        # if iteration % (2 * Npar) == 0 or dX2 > 0:
+        #     # finite difference
+        #     J = lm_func.get_J(x, y_hat)
+        # else:
+        #     # rank-1 update
+        #     J = lm_Broyden_J(p_old, y_old, J, p, y_hat)
 
+        # residual error between model and data
+        delta_y = (y - y_hat).reshape(-1, 1)
+
+        # Chi-squared error criteria
+        X2 = delta_y.T @ (W @ delta_y)
+        JtWJ = J.T @ (W @ J)
+        JtWdy = J.T @ (W @ delta_y)
+
+        if np.abs(JtWdy).max() < epsilon_1:
+            print('*** Your Initial Guess is Extremely Close to Optimal ***')
+            print('**** Convergence in r.h.s. ("JtWdy")  ****')
+            break
         # incremental change in parameters
         # Marquardt
         if Update_Type == 1:
@@ -304,51 +217,44 @@ def lm(p,t,y_dat):
             h = np.linalg.solve((JtWJ + lambda_*np.eye(Npar) ), JtWdy)
 
         # update the [idx] elements
-        p_try = p + h[idx]
+        p_try = p + h.squeeze()
         # apply constraints
         p_try = np.minimum(np.maximum(p_min,p_try),p_max)
 
         # residual error using p_try
-        delta_y = (y_dat - lm_func(t,p_try)).reshape(-1,1)
+        lm_func.set_p(p_try)
+        delta_y_try = (y - lm_func.forward(x)).reshape(-1, 1)
 
         # floating point error; break
         if not all(np.isfinite(delta_y)):
-          break
+            break
 
-        func_calls = func_calls + 1
         # Chi-squared error criteria
-        X2_try = delta_y.T @ ( delta_y * weight )
+        X2_try = delta_y_try.T @ (W@delta_y_try)
 
-        # % Quadratic
+        #TODO % Quadratic
         if Update_Type == 2:
           # One step of quadratic line update in the h direction for minimum X2
           alpha =  np.divide(JtWdy.T @ h, ( (X2_try - X2)/2 + 2*JtWdy.T@h ))
           h = alpha * h
 
           # % update only [idx] elements
-          p_try = p + h[idx]
+          p_try = p + h
           # % apply constraints
           p_try = np.minimum(np.maximum(p_min,p_try),p_max)
 
           # % residual error using p_try
-          delta_y = y_dat - lm_func(t,p_try)
+          delta_y = y - lm_func(x,p_try)
           func_calls = func_calls + 1
           # % Chi-squared error criteria
           X2_try = delta_y.T @ ( delta_y * weight )
 
-        rho = np.matmul( h.T @ (lambda_ * h + JtWdy),np.linalg.inv(X2 - X2_try))
+        rho = (X2-X2_try)/np.abs(h.T@(lambda_ * np.diag(np.diag(JtWJ))@h+JtWdy))
 
         # it IS significantly better
         if ( rho > epsilon_4 ):
-
-            dX2 = X2 - X2_old
-            X2_old = X2
-            p_old = p
-            y_old = y_hat
             # % accept p_try
             p = p_try
-
-            JtWJ,JtWdy,X2,y_hat,J = lm_matx(t,p_old,y_old,dX2,J,p,y_dat,weight,dp)
 
             # % decrease lambda ==> Gauss-Newton method
             # % Levenberg
@@ -364,11 +270,6 @@ def lm(p,t,y_dat):
 
         # it IS NOT better
         else:
-            # % do not accept p_try
-            X2 = X2_old
-
-            if not np.remainder(iteration,2*Npar):
-                JtWJ,JtWdy,dX2,y_hat,J = lm_matx(t,p_old,y_old,-1,J,p,y_dat,weight,dp)
 
             # % increase lambda  ==> gradient descent method
             # % Levenberg
@@ -383,36 +284,25 @@ def lm(p,t,y_dat):
                 nu = 2*nu
 
         # update convergence history ... save _reduced_ Chi-square
-        cvg_hst[iteration-1,0] = func_calls
-        cvg_hst[iteration-1,1] = X2/DoF
+        cvg_hst.append({'X2/DoF':X2/DoF, 'p':p})
 
-        for i in range(Npar):
-            cvg_hst[iteration-1,i+2] = p.T[0][i]
+        if (np.max(np.abs(h.squeeze())/(np.abs(p)+1e-12)) < epsilon_2  and  iteration > 2 ):
+            print('**** Convergence in Parameters ****')
+            break
 
-        if ( max(abs(JtWdy)) < epsilon_1  and  iteration > 2 ):
-          print('**** Convergence in r.h.s. ("JtWdy")  ****')
-          stop = 1
-
-        if ( max(abs(h)/(abs(p)+1e-12)) < epsilon_2  and  iteration > 2 ):
-          print('**** Convergence in Parameters ****')
-          stop = 1
-
-        if ( iteration == MaxIter ):
-          print('!! Maximum Number of Iterations Reached Without Convergence !!')
-          stop = 1
-
+        iteration = iteration + 1
         # --- End of Main Loop --- #
         # --- convergence achieved, find covariance and confidence intervals
 
     #  ---- Error Analysis ----
     #  recompute equal weights for paramter error analysis
     if np.var(weight) == 0:
-        weight = DoF/(delta_y.T@delta_y) * np.ones((Npnt,1))
+        weight = DoF/(delta_y.T@delta_y)
 
     # % reduced Chi-square
     redX2 = X2 / DoF
 
-    JtWJ,JtWdy,X2,y_hat,J = lm_matx(t,p_old,y_old,-1,J,p,y_dat,weight,dp)
+    # JtWJ,JtWdy,X2,y_hat,J = lm_matx(x,p_old,y_old,-1,J,p,y,weight,dp)
 
     # standard error of parameters
     covar_p = np.linalg.inv(JtWJ)
@@ -430,24 +320,21 @@ def lm(p,t,y_dat):
     corr_p = covar_p / [sigma_p@sigma_p.T]
 
     # coefficient of multiple determination
-    R_sq = np.correlate(y_dat, y_hat)
+    R_sq = np.correlate(y, y_hat)
     R_sq = 0
 
     # convergence history
-    cvg_hst = cvg_hst[:iteration,:]
 
     print('\nLM fitting results:')
     for i in range(Npar):
         print('----------------------------- ')
         print('parameter      = p%i' %(i+1))
-        print('fitted value   = %0.4f' % p[i,0])
-        print('standard error = %0.2f %%' % error_p[i,0])
+        print('fitted value   = %0.4f' % p[i])
+        print('standard error = %0.2f %%' % error_p[i])
 
-    return p,redX2,sigma_p,sigma_y,corr_p,R_sq,cvg_hst
+    return p,cvg_hst
 
 def make_lm_plots(x,y,cvg_hst):
-
-
     # extract parameters data
     p_hst  = cvg_hst[:,2:]
     p_fit  = p_hst[-1,:]

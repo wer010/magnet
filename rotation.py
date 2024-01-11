@@ -13,7 +13,9 @@ class Quaternion:
         return np.concatenate([[self.w],self.r])
 
     def rotation(self,p):
-        ret = (self.w*self.w-self.r@self.r)*p + 2*(self.r@p)*self.r+2*self.w*np.cross(self.r,p)
+        # ret = (self.w*self.w-self.r@self.r)*p + 2*(self.r@p)*self.r + 2*self.w*np.cross(self.r,p)
+        ret = (self.w*self.w-self.r@self.r)*p + 2*(p@self.r).reshape(-1,1)*self.r.reshape(1,-1) + 2*self.w*np.cross(self.r,p)
+
         return ret
 
     def q_to_r(self):
@@ -41,6 +43,12 @@ if __name__ == '__main__':
 
     v1 = r.as_matrix()@v
     v2 = q.rotation(v)
-
+    print(v1,v2)
     print(np.isclose(v1,v2))
-    print(np.isclose(q.q_to_r(),r.as_matrix()))
+
+    v = np.tile(v,(4,1))
+    v1 = (r.as_matrix()@v.T).T
+    v2 = q.rotation(v)
+    print(v1,v2)
+    print(np.isclose(v1,v2))
+    # print(np.isclose(q.q_to_r(),r.as_matrix()))

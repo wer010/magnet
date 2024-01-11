@@ -3,34 +3,56 @@
 # https://people.duke.edu/~hpgavin/ce281/lm.pdf
 
 import numpy as np
-import matplotlib.pyplot as plt
-from LM import lm,lm_func,make_lm_plots
+from LM import lm
+from LM import make_lm_plots
 
-def make_noisy_test_data(p_true,Npnt,msmnt_err):
-    """
-    Make noisy test data.
+class Func:
+    def __init__(self,p):
+        self.p = p
+        self.num_iter=0
 
-    Parameters
-    ----------
-    p_true      : true fitted parameters values (n x 1), must be 2D array
-    Npnt        : number of data points (m = Npnt)
-    msmnt_err   : amount of noise added to model data
+    def forward(self,x):
+        y_hat = self.p[0] * np.exp(-x / self.p[1]) + self.p[2] * np.sin(x / self.p[3])
+        self.num_iter+=1
+        return y_hat
 
-    Returns
-    -------
-    x           : x-values of test data (m x 1), must be 2D array
-    y           : y-values of test data (m x 1), must be 2D array
+    def set_p(self,p):
+        self.p = p
 
-    """
+    def get_J(self, x, y, dp=0.001, update = 'oneside'):
 
-    x = np.array(range(Npnt))
-    y_true = lm_func(x,p_true)
+        #update ： 'oneside','center' or 'zero'
 
-    # add random measurement errors
-    rng = np.random.default_rng()
-    y = y_true + msmnt_err*rng.random((Npnt))
 
-    return x,y
+        # number of data points
+        m = len(y)
+        # number of parameters
+        n = len(self.p)
+
+        # initialize Jacobian to Zero
+        pc = self.p
+        J = np.zeros((m, n))
+
+        dp = dp * (1 + abs(self.p))
+        # START --- loop over all parameters
+        if update is not 'zero':
+            for j in range(n):
+                mask = np.zeros(n)
+                mask[j]=1
+
+                self.set_p(pc + dp*mask)
+                y1 = self.forward(x)
+
+                if update is 'oneside':
+                    # J_ij = f(x+dx)-f(x)/dx
+                    J[:, j] = (y1 - y) / dp[j]
+                else:
+                    # J_ij = f(x+dx)-f(x-dx)/2*dx
+                    self.set_p(pc - dp * mask)
+                    y2 = self.forward(x)
+                    J[:, j] = (y1 - y2) / (2 * dp[j])
+            self.set_p(pc)
+        return J
 
 def main():
     """
@@ -59,23 +81,25 @@ def main():
     """
 
     # define true fitted parameters for testing (must be 2D array)
-    p_true = np.array([6, 20, 1, 5]).reshape(-1,1)
     # define initial guess of parameters (must be 2D array)
-    p_init = np.array([10, 50, 5, 5.7]).reshape(-1,1)
     # number of data points (x-values will range from 0 to 99)
     Npnt = 100
     # adding noise to input data to simulate artificial measurements
-    msmnt_err = 0.5
+    msmnt_err = 0.05
+    p_true = np.array([6, 20, 1, 5])
+    x = np.array(range(Npnt))
+    lm_func = Func(p_true)
+    y_true = lm_func.forward(x)
+    # add Gaussian random measurement noise
+    y = y_true + msmnt_err * np.random.randn((Npnt))
 
-    x, y = make_noisy_test_data(p_true, Npnt, msmnt_err)
 
+    p_init = np.array([10, 50, 6, 5.7])
+    p_fit, cvg_hst = lm(p_init, x, y, lm_func)
 
-
-    # minimize sum of weighted squared residuals with L-M least squares analysis
-    p_fit,Chi_sq,sigma_p,sigma_y,corr,R_sq,cvg_hst = lm(p_init,x,y)
-
+    print(p_fit)
     # plot results of L-M least squares analysis
-    make_lm_plots(x, y, cvg_hst)
+    # make_lm_plots(x, y, cvg_hst)
 
 
 if __name__ == '__main__':
