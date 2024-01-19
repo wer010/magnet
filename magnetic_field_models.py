@@ -26,11 +26,11 @@ class Magnetic_field:
         return
 
 class Magnetic_dipole(Magnetic_field):
-    def __init__(self,bt,m):
+    def __init__(self,bt,m,work_area):
         super(Magnetic_dipole,self).__init__(bt,m)
 
     def get_bvector(self,p):
-        assert p.shape==3
+        assert p.shape==(3,)
         mp=self.m@p
         r= np.linalg.norm(p)
 
