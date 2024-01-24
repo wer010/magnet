@@ -96,12 +96,12 @@ def lm(p_init, x, y, lm_func, use_broyden=False):
         if use_broyden:
             if iteration % (2 * Npar) == 0 or dX2 > 0:
                 # finite difference
-                J = lm_func.get_J(x, y_hat)
+                J = lm_func.get_Jacobian(x, y_hat)
             else:
                 # rank-1 update
                 J = lm_Broyden_J(p_old, y_old, J, p, y_hat)
         else:
-            J = lm_func.get_J(x, y_hat)
+            J = lm_func.get_Jacobian(x, y_hat)
 
         # residual error between model and data
         delta_y = (y - y_hat).reshape(-1, 1)
@@ -158,7 +158,7 @@ def lm(p_init, x, y, lm_func, use_broyden=False):
 
         rho = (X2-X2_try)/np.abs(h.T@(lambda_ * np.diag(np.diag(JtWJ))@h+JtWdy))
 
-        cvg_hst.append({'X2/DoF':X2/DoF, 'p':p,'lambda':lambda_,'y_hat':y_hat})
+        cvg_hst.append({'X2':X2, 'p':p,'lambda':lambda_,'y_hat':y_hat})
 
         # it IS significantly better
         if ( rho > epsilon_4 ):
