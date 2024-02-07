@@ -33,11 +33,12 @@ class Quaternion:
 
 if __name__ == '__main__':
 
-    q= [np.cos(np.pi/6),np.sin(np.pi/6),0,0]
+    theta = np.pi/4
+    q = [np.cos(theta),np.sin(theta)*np.sqrt(3)/3,np.sin(theta)*np.sqrt(3)/3,np.sin(theta)*np.sqrt(3)/3]
 
     r = R.from_quat([q[1],q[2],q[3],q[0]])
 
-    q= Quaternion(q[0],q[1],q[2],q[3])
+    q= Quaternion(*q)
     print(q.get_q())
     v = np.array([0,1,0])
 
@@ -45,6 +46,13 @@ if __name__ == '__main__':
     v2 = q.rotation(v)
     print(v1,v2)
     print(np.isclose(v1,v2))
+
+    q_star = [np.cos(theta),-np.sin(theta)*np.sqrt(3)/3,-np.sin(theta)*np.sqrt(3)/3,-np.sin(theta)*np.sqrt(3)/3]
+    q_star = Quaternion(*q_star)
+    v3 = q_star.rotation(v2)
+    print('inverse rotation')
+    print(np.isclose(v, v3))
+
 
     v = np.tile(v,(4,1))
     v1 = (r.as_matrix()@v.T).T

@@ -1,6 +1,6 @@
-# TODO: implement the numerial solve via LM algorithm
 import numpy as np
-import torch
+from rotation import Quaternion
+
 class Func:
     # 2D xz plane magnetic dipole model
     def __init__(self,p):
@@ -8,24 +8,14 @@ class Func:
         # r means 2D rotation [r] of sensor array
         self.set_p(p)
         self.num_iter=0
+    def reset_num_iter(self):
+        self.num_iter=0
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args)
 
-
     def forward(self,x):
-        # x \in R^{n,2}
-        pos = self.p[0:2]
-        rot = self.p[-1]
-        x= pos + x
-        bt = 1000
-        r = np.linalg.norm(x,axis=-1)
-        bx = (bt/np.power(r,5)) * (x[:,0]*x[:,1])
-        bz = (bt/np.power(r,5)) * (3*x[:,1]*x[:,1]-np.power(r,2))
-        bi = np.cos(rot)*bx+np.sin(rot)*bz
-        bk = -np.sin(rot)*bx+np.cos(rot)*bz
-        self.num_iter+=1
-        return np.concatenate([bi,bk])   #return result \in R^n*2
+        raise NotImplementedError
 
     def set_p(self,p):
         self.p = p
@@ -79,6 +69,77 @@ class Func:
         H = J.T@J
         return H
 
+class Func_2Dpos(Func):
+    # 2D xz plane magnetic dipole model
+
+    def forward(self,x):
+        # x \in R^{n,2} which represents the relative coordinate of all sensors in the array
+        pos = self.p[0:2]
+        x= pos + x
+        bt = 1000
+        r = np.linalg.norm(x,axis=-1)
+        bx = (bt/np.power(r,5)) * (x[:,0]*x[:,1])
+        bz = (bt/np.power(r,5)) * (3*x[:,1]*x[:,1]-np.power(r,2))
+
+        self.num_iter+=1
+        return np.concatenate([bx,bz])   #return result \in R^n*2
+
+class Func_2D(Func):
+    # 2D xz plane magnetic dipole model
+
+    def forward(self,x):
+        # p contains three parameter [x,z,r] ,[x,z] denotes the relative position of sensor array
+        # [r] denotes 2D rotation angle of sensor array
+        pos = self.p[0:2]
+        rot = self.p[-1]
+        x= pos + x
+        bt = 1000
+        r = np.linalg.norm(x,axis=-1)
+        bx = (bt/np.power(r,5)) * (x[:,0]*x[:,1])
+        bz = (bt/np.power(r,5)) * (3*x[:,1]*x[:,1]-np.power(r,2))
+        bi = np.cos(rot)*bx+np.sin(rot)*bz
+        bk = -np.sin(rot)*bx+np.cos(rot)*bz
+        self.num_iter+=1
+        return np.concatenate([bi,bk])   #return result \in R^n*2
+
+class Func_3Dpos(Func):
+    # 3D xyz plane magnetic dipole model
+
+    def forward(self,x):
+        # x \in R^{n,3}
+        pos = self.p[0:3]
+        x= pos + x
+        bt = 1000
+        r = np.linalg.norm(x, axis=-1)
+        bx = (bt/np.power(r,5)) * (x[:,0]*x[:,2])
+        by = (bt/np.power(r,5)) * (x[:,1]*x[:,2])
+        bz = (bt/np.power(r,5)) * (3*x[:,2]*x[:,2]-np.power(r,2))
+        self.num_iter+=1
+        return np.concatenate([bx,by,bz])   #return result \in R^n*3
+
+class Func_3D(Func):
+    # 3D xz plane magnetic dipole model
+
+    def forward(self,x):
+        # p contains three parameter [x,y,z,w,a,b,c] ,[x,y,z] denotes the 3D relative position of sensor array
+        # [w,a,b,c] denotes quaternion of sensor array relate to the global coordinate system
+        pos = self.p[0:3]
+        q = self.p[4:-1]
+        quat = Quaternion(*q)
+        x= pos + x
+        bt = 1000
+        r = np.linalg.norm(x,axis=-1)
+        bx = (bt / np.power(r, 5)) * (x[:, 0] * x[:, 2])
+        by = (bt / np.power(r, 5)) * (x[:, 1] * x[:, 2])
+        bz = (bt / np.power(r, 5)) * (3 * x[:, 2] * x[:, 2] - np.power(r, 2))
+
+        b= np.stack([bx,by,bz],axis=-1)
+        # b:nx3
+        b_s = np.linalg.inv(quat.q_to_r())@b.T
+        # bs:3xn
+        self.num_iter+=1
+        return b_s.flatten()   #return result \in R^3n
+
 
 class optim:
     def __init__(self, p_init, x, y, func, max_iter=1000):
@@ -91,11 +152,14 @@ class optim:
         self.Npnt = len(self.y)
         self.p_min = -1000
         self.p_max = 1000
+        self.weight = 1/(y.T@y)
+        self.epsilon = 1e-5
+        self.epsilon_para = 1e-6 # convergence tolerance for parameters
 
     def loss(self,y_hat):
         # loss = \sum (\bar{y} - y)^2
         delta_y = (self.y - y_hat).reshape(-1, 1)
-        X2 = delta_y.T @ delta_y
+        X2 = self.weight*(delta_y.T @ delta_y)
         return delta_y,X2
 
     def __call__(self):
@@ -113,7 +177,6 @@ class Levenberg_Marquardt(optim):
         self.W = np.eye(self.Npnt) * self.weight
         self.DoF = self.Npnt - self.Npar + 1
         self.epsilon_1 = 1e-6  # convergence tolerance for gradient
-        self.epsilon_2 = 1e-6  # convergence tolerance for parameters
         self.epsilon_4 = 1e-5  # determines acceptance of a L-M step
         self.lambda_0 = 1e-2  # initial value of damping paramter, lambda
         self.lambda_UP_fac = 11  # factor for increasing lambda
@@ -157,6 +220,10 @@ class Levenberg_Marquardt(optim):
 
             h = np.linalg.solve((JtWJ + self.lambda_0 * np.diag(np.diag(JtWJ))), JtWdy)
 
+            if (np.max(np.abs(h.squeeze()) / (np.abs(self.p) + 1e-12)) < self.epsilon_para and iteration > 2):
+                print('**** Convergence in Parameters ****')
+                break
+
             p_try = self.p + h.squeeze()
             # apply constraints
             p_try = np.minimum(np.maximum(self.p_min, p_try), self.p_max)
@@ -186,10 +253,6 @@ class Levenberg_Marquardt(optim):
 
             # update convergence history ... save _reduced_ Chi-square
 
-            if (np.max(np.abs(h.squeeze()) / (np.abs(self.p) + 1e-12)) < self.epsilon_2 and iteration > 2):
-                print('**** Convergence in Parameters ****')
-                break
-
             iteration = iteration + 1
         return self.p, cvg_hst
     # TODO
@@ -200,7 +263,7 @@ class Levenberg_Marquardt(optim):
 class Gradient_Descent(optim):
     def __init__(self, *args):
         super().__init__(*args)
-        self.lambda_0 = 5e-1
+        self.lambda_0 = 1e-5
 
     def op(self):
         cvg_hst = []
@@ -210,7 +273,14 @@ class Gradient_Descent(optim):
             y_hat = self.func(self.x)
             delta_y, chi_sq = self.loss(y_hat)
             J = self.func.get_Jacobian(self.x, y_hat)
-            self.p = self.p + self.lambda_0* (J.T@delta_y).squeeze()
+            h = 2*self.weight*self.lambda_0* (J.T@delta_y).squeeze()
+            if chi_sq<=self.epsilon:
+                print('**** Convergence****')
+                break
+            if (np.max(np.abs(h) / (np.abs(self.p) + 1e-12)) < self.epsilon_para and iteration > 2):
+                print('**** Convergence in Parameters ****')
+                break
+            self.p = self.p + h
             cvg_hst.append({'X2': chi_sq , 'p': self.p, 'lambda': self.lambda_0, 'y_hat': y_hat})
             iteration+=1
         return self.p, cvg_hst
@@ -228,9 +298,13 @@ class Gauss_Newton(optim):
             self.func.set_p(self.p)
             y_hat = self.func(self.x)
             delta_y, chi_sq = self.loss(y_hat)
-            J = self.func.get_Jacobian(self.x, y_hat)
-            self.p = self.p + np.linalg.inv(J.T@J) @ (J.T @ delta_y).squeeze()
-            cvg_hst.append({'X2': chi_sq, 'p': self.p,  'y_hat': y_hat})
+            J = self.func.get_Jacobian(self.x, y_hat,update='center')
+            h = np.linalg.inv(J.T@J) @ (J.T @ delta_y).squeeze()
+            if chi_sq<=self.epsilon or (np.max(np.abs(h) / (np.abs(self.p) + 1e-12)) < self.epsilon_para and iteration > 2):
+                print('**** Convergence in Parameters ****')
+                break
+            self.p = self.p + h
+            cvg_hst.append({'X2': chi_sq, 'p': self.p, 'lambda': 1, 'y_hat': y_hat})
             iteration += 1
         return self.p, cvg_hst
 

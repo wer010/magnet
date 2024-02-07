@@ -8,7 +8,7 @@ import seaborn as sns
 import matplotlib.pylab as pl
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from solver import Levenberg_Marquardt,Gradient_Descent,Gauss_Newton,Func
+from solver import Levenberg_Marquardt,Gradient_Descent,Gauss_Newton,Func_2Dpos
 
 
 def make_lm_plots(x,y,cvg_hst,lm_func):
@@ -58,7 +58,6 @@ def make_lm_plots(x,y,cvg_hst,lm_func):
     ax2.set_ylabel('Values (norm.)',fontdict=font_axes)
     ax2.set_title('Convergence of parameters',fontdict=font_title)
     ax2.legend()
-    print(l)
     # create plot showing histogram of residuals
     ax3 = fig.add_subplot(1,3,3)
     sns.histplot(ax=ax3,data=y_fit[-1]-y,color='deepskyblue')
@@ -108,36 +107,40 @@ def main():
     # number of data points (x-values will range from 0 to 99)
     # adding noise to input data to simulate artificial measurements
     msmnt_err = 0.05
-    p_true = np.array([150,150,np.pi/4])
+    p_true = np.array([150,150])
+    r = np.array([np.pi/4])
     x = np.array([[0,0],
                     [0,50],
                     [50,0],
                     [50,50]])
-    lm_func = Func(p_true)
+    lm_func = Func_2Dpos(p_true)
     y_true = lm_func(x)
     # add Gaussian random measurement noise
     y = y_true #+ msmnt_err * np.random.randn((Npnt))
 
 
-    p_init = np.array([5,5,0])
+    p_init = np.array([5,5])
     # p_fit, cvg_hst = lm(p_init, x, y, lm_func)
     # print(f'p_fit is {p_fit} with X2 {cvg_hst[-1]["X2"]}')
-
+    lm_func.reset_num_iter()
     solver = Levenberg_Marquardt(p_init, x, y, lm_func)
     p_fit,cvg_hst = solver()
-    print(f'p_fit is {p_fit} with X2 {cvg_hst[-1]["X2"]}')
+    print(f'p_fit is {p_fit} with X2 {cvg_hst[-1]["X2"]} in {len(cvg_hst)} iteration and {lm_func.num_iter} calculation')
+    make_lm_plots(x, y, cvg_hst, lm_func)
 
     # plot results of L-M least squares analysis
     # make_lm_plots(x, y, cvg_hst, lm_func)
-
+    lm_func.reset_num_iter()
     solver = Gradient_Descent(p_init, x, y, lm_func)
     p_fit, cvg_hst = solver()
-    print(f'p_fit is {p_fit} with X2 {cvg_hst[-1]["X2"]}')
+    print(f'p_fit is {p_fit} with X2 {cvg_hst[-1]["X2"]} in {len(cvg_hst)} iteration and {lm_func.num_iter} calculation')
+    # make_lm_plots(x, y, cvg_hst, lm_func)
 
+    lm_func.reset_num_iter()
     solver = Gauss_Newton(p_init, x, y, lm_func)
     p_fit, cvg_hst = solver()
-    print(f'p_fit is {p_fit} with X2 {cvg_hst[-1]["X2"]}')
-    # make_lm_plots(x, y, cvg_hst, lm_func)
+    print(f'p_fit is {p_fit} with X2 {cvg_hst[-1]["X2"]} in {len(cvg_hst)} iteration and {lm_func.num_iter} calculation')
+    make_lm_plots(x, y, cvg_hst, lm_func)
 
 if __name__ == '__main__':
     main()
