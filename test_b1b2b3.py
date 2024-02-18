@@ -22,7 +22,7 @@ m3=np.array([0,0,1])
 b1_list = []
 b2_list = []
 b3_list = []
-q= [np.cos(np.pi/4),np.sin(np.pi/4),0,0]
+q= [np.cos(np.pi/15),np.sin(np.pi/15)/np.sqrt(3),np.sin(np.pi/15)/np.sqrt(3),np.sin(np.pi/15)/np.sqrt(3)]
 q = Quaternion(*q)
 
 
@@ -37,9 +37,9 @@ for i in range(4):
     b3_list.append(b3)
 
 
-print(np.stack([b1_list]))
-print(np.stack([b2_list]))
-print(np.stack([b3_list]))
+# print(np.stack([b1_list]))
+# print(np.stack([b2_list]))
+# print(np.stack([b3_list]))
 
 
 
@@ -49,13 +49,21 @@ b3 = (b3t / (np.power(r, 3))) * ((3 * (pos0 @ m3) / np.power(r, 2)) * pos0 - m3)
 b1s = q.rotation(b1).squeeze()
 b2s = q.rotation(b2).squeeze()
 b3s = q.rotation(b3).squeeze()
-print(f'{b1s}, {b2s}, {b3s}')
+# print(f'{b1s}, {b2s}, {b3s}')
 print(f'L2 norm of sensor magnetic vectors are {np.linalg.norm(b1s)}, {np.linalg.norm(b2s)}, {np.linalg.norm(b3s)}.')
 angle12 = b1s@b2s/(np.linalg.norm(b1s)*np.linalg.norm(b2s))
 angle23 = b2s@b3s/(np.linalg.norm(b2s)*np.linalg.norm(b3s))
 angle31 = b3s@b1s/(np.linalg.norm(b3s)*np.linalg.norm(b1s))
 print(f'In the sensor coordinate system, three angle of magnetic vectors is {angle12}, {angle23}, {angle31}.')
 
+for i in range(len(b1_list)):
+    b1s = q.rotation(b1_list[i]).squeeze()
+    b2s = q.rotation(b2_list[i]).squeeze()
+    b3s = q.rotation(b3_list[i]).squeeze()
+    print(f'In the {i}th octant, b1 is {b1_list[i]}, b1s is {b1s}, b2 is {b2_list[i]}, b2s is {b2s}, b3 is {b3_list[i]}, b3s is {b3s}.')
+    b1_list.append(b1s)
+    b2_list.append(b2s)
+    b3_list.append(b3s)
 
 fig = plt.figure(figsize=(12, 5))
 for i in range(len(b1_list)):
@@ -64,10 +72,7 @@ for i in range(len(b1_list)):
     b2n = np.linalg.norm(b2_list[i])
     b3n = np.linalg.norm(b3_list[i])
 
-    b1s = q.rotation(b1_list[i]).squeeze()
-    b2s = q.rotation(b2_list[i]).squeeze()
-    b3s = q.rotation(b3_list[i]).squeeze()
-    print(f'In the {i}th octant, b1s is {b1s}, b2s is {b2s}, b3s is {b3s}.')
+
     # print(f'L2 norm of magnetic vectors are {b1n}, {b2n}, {b3n}.')
     ax.quiver(0, 0, 0, b1_list[i][0], b1_list[i][1], b1_list[i][2], color='red' ,length = 100*b1n/max(b1n,b2n,b3n))
     ax.quiver(0, 0, 0, b2_list[i][0], b2_list[i][1], b2_list[i][2], color='green' ,length = 100*b2n/max(b1n,b2n,b3n))
@@ -84,6 +89,7 @@ for i in range(len(b1_list)):
     # print(f'In the {i}th octant, three angle of magnetic vectors is {angle12}, {angle23}, {angle31}.')
     # print(f'The volume of three magnetic vector is {np.cross(b1_list[i],b2_list[i])@b3_list[i]}')
 
-
+plt.savefig('./vector_fig.png',dpi=300)
 plt.show()
+print('end')
 
