@@ -60,24 +60,20 @@ def main():
     imu_rx_ang = data_raw[:, 40:43]
     imu_rx_qtn = data_raw[:, 43:47]
 
+    pos_rx = (51.67396739673968 / 93.8176818448948 * (pos_rx_right - pos_rx_left)) + pos_rx_left
+    pos_tx = (73.82978297829783 / 168.44277858900054 * (pos_tx_right - pos_tx_left)) + pos_tx_left
 
+    transmit_x = pos_tx_right - pos_tx
+    transmit_y = pos_tx_front - pos_tx
+    t_axis_x = transmit_x / np.linalg.norm(transmit_x)
+    t_axis_y = transmit_y / np.linalg.norm(transmit_y)
+    t_axis_z = np.cross(t_axis_x, t_axis_y)
+    pos = np.dot(np.stack([t_axis_x,t_axis_y,t_axis_z]), (pos_rx - pos_tx)) / 1000
 
-
-    r_all = []
-    for i in range(np.shape(data_raw)[0]):
-        pos, relative_r = cal_pos(data_raw[i])
-        r = np.sqrt(np.sum(np.square(pos)))
-        r_all.append(r)
-        if i == 0:
-            pos_all = pos
-            relative_r_all = relative_r
-            data = data_raw[i][0:9]
-        else:
-            pos_all = np.vstack((pos_all, pos))
-            relative_r_all = np.vstack((relative_r_all, relative_r))
-            data = np.vstack((data, data_raw[i][0:9]))
-    r_all = np.array(r_all)
-    return 0
+    r_axis = np.cross((pos_rx_right-pos_rx_left),(pos_tx_right-pos_tx_left))
+    ang = np.dot((pos_rx_right-pos_rx_left),(pos_tx_right-pos_tx_left))/(np.linalg.norm(pos_rx_right-pos_rx_left)*np.linalg.norm(pos_tx_right-pos_tx_left))
+    q = np.array([np.cos(ang/2),np.sin(ang/2)*r_axis])
+    return pos,q
 
 if __name__ == '__main__':
     main()

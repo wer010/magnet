@@ -201,7 +201,7 @@ class Levenberg_Marquardt(optim):
             if self.use_broyden:
                 if iteration % (2 * self.Npar) == 0 or dX2 > 0:
                     # finite difference
-                    J = self.func.get_Jacobian(self.x, y_hat)
+                    J = self.func.get_Jacobian(self.x, y_hat,update='center')
                 else:
                     # rank-1 update
                     J = lm_Broyden_J(p_old, y_old, J, p, y_hat)
@@ -263,7 +263,7 @@ class Levenberg_Marquardt(optim):
 class Gradient_Descent(optim):
     def __init__(self, *args):
         super().__init__(*args)
-        self.lambda_0 = 1e-5
+        self.lambda_0 = 5e-8
 
     def op(self):
         cvg_hst = []
@@ -272,7 +272,7 @@ class Gradient_Descent(optim):
             self.func.set_p(self.p)
             y_hat = self.func(self.x)
             delta_y, chi_sq = self.loss(y_hat)
-            J = self.func.get_Jacobian(self.x, y_hat)
+            J = self.func.get_Jacobian(self.x, y_hat,update='center')
             h = 2*self.weight*self.lambda_0* (J.T@delta_y).squeeze()
             if chi_sq<=self.epsilon:
                 print('**** Convergence****')

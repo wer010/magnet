@@ -134,7 +134,7 @@ def main():
     solver = Gradient_Descent(p_init, x, y, lm_func)
     p_fit, cvg_hst = solver()
     print(f'p_fit is {p_fit} with X2 {cvg_hst[-1]["X2"]} in {len(cvg_hst)} iteration and {lm_func.num_iter} calculation')
-    # make_lm_plots(x, y, cvg_hst, lm_func)
+    make_lm_plots(x, y, cvg_hst, lm_func)
 
     lm_func.reset_num_iter()
     solver = Gauss_Newton(p_init, x, y, lm_func)
