@@ -4,13 +4,12 @@
 # In[15]:
 
 
-get_ipython().run_line_magic('matplotlib', 'notebook')
 # %matplotlib tk
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from scipy.optimize import leastsq
-
+from octant import get_data
 
 # In[32]:
 
@@ -75,6 +74,7 @@ for i in range(np.shape(data_raw)[0]):
         data = np.vstack((data,data_raw[i][0:9]))
 r_all = np.array(r_all)
 
+data = get_data("duijiaoxian.txt")
 
 # In[35]:
 

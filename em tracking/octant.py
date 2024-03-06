@@ -39,7 +39,11 @@ def cal_pos(matrix):
 
 
 def main():
-    data_raw = np.loadtxt("duijiaoxian.txt")
+    data = get_data("duijiaoxian.txt")
+
+def get_data(p):
+
+    data_raw = np.loadtxt(p)
 
     mag1 = data_raw[:,0:3]
     mag2 = data_raw[:,3:6]
@@ -65,15 +69,26 @@ def main():
 
     transmit_x = pos_tx_right - pos_tx
     transmit_y = pos_tx_front - pos_tx
-    t_axis_x = transmit_x / np.linalg.norm(transmit_x)
-    t_axis_y = transmit_y / np.linalg.norm(transmit_y)
+    t_axis_x = transmit_x / np.linalg.norm(transmit_x, axis=-1)[:, np.newaxis]
+    t_axis_y = transmit_y / np.linalg.norm(transmit_y, axis=-1)[:, np.newaxis]
     t_axis_z = np.cross(t_axis_x, t_axis_y)
-    pos = np.dot(np.stack([t_axis_x,t_axis_y,t_axis_z]), (pos_rx - pos_tx)) / 1000
+    pos = np.matmul(np.stack([t_axis_x,t_axis_y,t_axis_z],axis=1), (pos_rx - pos_tx)[..., np.newaxis]) / 1000
 
-    r_axis = np.cross((pos_rx_right-pos_rx_left),(pos_tx_right-pos_tx_left))
-    ang = np.dot((pos_rx_right-pos_rx_left),(pos_tx_right-pos_tx_left))/(np.linalg.norm(pos_rx_right-pos_rx_left)*np.linalg.norm(pos_tx_right-pos_tx_left))
-    q = np.array([np.cos(ang/2),np.sin(ang/2)*r_axis])
-    return pos,q
+    receiver_x = pos_rx_right - pos_rx
+    receiver_y = pos_rx_front - pos_rx
+    r_axis_x = receiver_x / np.linalg.norm(receiver_x, axis=-1)[:, np.newaxis]
+    r_axis_y = receiver_y / np.linalg.norm(receiver_y, axis=-1)[:, np.newaxis]
+    r_axis_z = np.cross(r_axis_x, r_axis_y)
+
+    rot_mat =  np.matmul(np.stack([t_axis_x,t_axis_y,t_axis_z],axis=1), np.stack([r_axis_x,r_axis_y,r_axis_z],axis=-1))
+
+    ret = {'position':pos,
+           'rotation_matrix':rot_mat,
+           'magnetic_intensity':data_raw[:,0:9],
+           'imu_tx_acc':imu_tx_acc,
+           'imu_rx_acc':imu_rx_acc}
+
+    return ret
 
 if __name__ == '__main__':
     main()
