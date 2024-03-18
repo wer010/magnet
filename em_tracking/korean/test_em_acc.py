@@ -1,8 +1,16 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from em_tracking.utils import get_data
+from em_tracking.utils import get_data,get_octant_by_imu
 from magnetic_field_models import Magnetic_dipole
 from datetime import datetime
+sign_symbols = np.array([[1,1,1],
+                         [-1,1,1],
+                         [-1,-1,1],
+                         [1,-1,1],
+                         [1,1,-1],
+                         [-1,1,-1],
+                         [-1,-1,-1],
+                         [1,-1,-1]])
 
 def get_pos_by_analytical_solution(b_sensor):
     theory_bt = 2.42e-9
@@ -29,7 +37,7 @@ def get_pos_by_matrix_analysis(b_sensor):
 
 def main():
     theory_bt = 2.42e-9
-    data = get_data("20240311_test1.txt")
+    data = get_data("20240311_test3.txt")
     b_sensor = data['magnetic_intensity']
 
     pos_label = data['position']
@@ -43,6 +51,7 @@ def main():
     m2 = Magnetic_dipole(theory_bt, np.array([0, 1, 0]))
     m3 = Magnetic_dipole(theory_bt, np.array([0, 0, 1]))
 
+    # get the sign of b_sensor
     theoretical_b1 = m1.get_bvector(pos_label)
     theoretical_b1s = np.matmul(np.transpose(rm, axes = [0,2,1]), theoretical_b1[..., np.newaxis]).squeeze()
 
@@ -55,15 +64,27 @@ def main():
     sign_tbs = np.sign(np.concatenate([theoretical_b1s,theoretical_b2s,theoretical_b3s],axis =-1))
     b_sensor_with_sign = b_sensor*sign_tbs
 
-
+    # calculate the postion by analytical solution
     start = datetime.now()
     pos_ana,r_ana = get_pos_by_analytical_solution(b_sensor)
-    pos_ana = pos_ana*[[1,-1,1]]
+
+    b1 = m1.get_bvector(pos_ana)
+    b2 = m2.get_bvector(pos_ana)
+    b3 = m3.get_bvector(pos_ana)
+    b_a = np.concatenate([b1,b2,b3],axis =-1)
+    b = b_a.reshape(-1, 3, 3)
+    bs = np.matmul(rm.transpose([0,2,1]), b.transpose([0,2,1]))
+
+    for i in range(pos_ana.shape[0]):
+        oct = get_octant_by_imu(b_a[i], b_sensor[i], rm[i])
+        pos_ana[i] = pos_ana[i]* sign_symbols[oct-1]
+
     end = datetime.now()
     mae_ana = np.mean(np.abs(pos_label-pos_ana),axis=0)
     vae_ana = np.var(np.abs(pos_label-pos_ana),axis=0)
     print(f'Time consumpts {end - start}s. Mean absolute error is {np.mean(np.abs(r_label - r_ana), axis=0)},{mae_ana}, variance of absolute error is {np.var(np.abs(r_label - r_ana), axis=0)},{vae_ana}')
 
+    # calculate the postion by matrix analysis
     start = datetime.now()
     pos_mat,r_mat = get_pos_by_matrix_analysis(b_sensor_with_sign)
     x_sign_mat = np.sign(pos_mat[:,0])

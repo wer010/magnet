@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from rotation import Quaternion
+from em_tracking.utils import get_octant_by_imu
 sign_symbols = np.array([[1,1,1],
                          [-1,1,1],
                          [-1,-1,1],
@@ -42,13 +43,21 @@ for i in range(4):
 # print(np.stack([b3_list]))
 
 
-
 b1 = (b1t / (np.power(r, 3))) * ((3 * (pos0 @ m1) / np.power(r, 2)) * pos0 - m1)
 b2 = (b2t / (np.power(r, 3))) * ((3 * (pos0 @ m2) / np.power(r, 2)) * pos0 - m2)
 b3 = (b3t / (np.power(r, 3))) * ((3 * (pos0 @ m3) / np.power(r, 2)) * pos0 - m3)
 b1s = q.rotation(b1).squeeze()
 b2s = q.rotation(b2).squeeze()
 b3s = q.rotation(b3).squeeze()
+
+pos0 = np.abs(pos0)
+b1 = (b1t / (np.power(r, 3))) * ((3 * (pos0 @ m1) / np.power(r, 2)) * pos0 - m1)
+b2 = (b2t / (np.power(r, 3))) * ((3 * (pos0 @ m2) / np.power(r, 2)) * pos0 - m2)
+b3 = (b3t / (np.power(r, 3))) * ((3 * (pos0 @ m3) / np.power(r, 2)) * pos0 - m3)
+
+oct = get_octant_by_imu(np.concatenate([b1,b2,b3]), np.abs(np.concatenate([b1s,b2s,b3s])), q.q_to_r())
+print(oct)
+
 # print(f'{b1s}, {b2s}, {b3s}')
 print(f'L2 norm of sensor magnetic vectors are {np.linalg.norm(b1s)}, {np.linalg.norm(b2s)}, {np.linalg.norm(b3s)}.')
 angle12 = b1s@b2s/(np.linalg.norm(b1s)*np.linalg.norm(b2s))

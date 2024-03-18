@@ -23,7 +23,6 @@ def convert_i_to_b(i):
 
     return np.concatenate([b1,b2,b3],axis=-1)
 
-
 def get_data(p):
     '''
     Load data from txt.
@@ -81,4 +80,20 @@ def get_data(p):
            }
 
     return ret
+
+def get_octant_by_imu(b_a, bs_a, rm):
+    sign_b = [[[1,1,1],[1,1,1],[1,1,1]],
+              [[1,-1,-1],[-1,1,1],[-1,1,1]],
+              [[1,1,-1],[1,1,-1],[-1,-1,1]],
+              [[1,-1,1],[-1,1,-1],[1,-1,1]]]
+
+    e_list = []
+    for i in range(4):
+        b = b_a.reshape(3,3)*sign_b[i]
+        bs = np.abs(np.matmul(rm.T, b.T))
+        e = bs.T.reshape(-1) - bs_a
+        e_list.append(np.sum(e**2))
+    e = np.concatenate([e_list])
+    oct = np.argmin(e)+1
+    return oct
 

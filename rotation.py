@@ -21,9 +21,9 @@ class Quaternion:
     def q_to_r(self):
         w = self.w
         a, b, c = self.r
-        rs = [[w * w + a * a - b * b - c * c, 2 * a * b - 2 * c * w, 2 * a * c + 2 * b * w],
-              [2 * a * b + 2 * w * c, w * w - a * a + b * b - c * c, 2 * b * c - 2 * a * w],
-              [2 * a * c - 2 * b * w, 2 * b * c + 2 * a * w, w * w - a * a - b * b + c * c]]
+        rs = np.array([[w * w + a * a - b * b - c * c, 2 * a * b - 2 * c * w, 2 * a * c + 2 * b * w],
+                       [2 * a * b + 2 * w * c, w * w - a * a + b * b - c * c, 2 * b * c - 2 * a * w],
+                       [2 * a * c - 2 * b * w, 2 * b * c + 2 * a * w, w * w - a * a - b * b + c * c]])
         # r = R.from_quat([a,b,r,w])
         # print(r.as_matrix())
         # print(np.isclose(rs,r.as_matrix(),1e-5))

@@ -51,12 +51,14 @@ for i in range(4):
     angle12 = b1 @ b2 / (np.linalg.norm(b1) * np.linalg.norm(b2))
     angle23 = b2 @ b3 / (np.linalg.norm(b2) * np.linalg.norm(b3))
     angle31 = b3 @ b1 / (np.linalg.norm(b3) * np.linalg.norm(b1))
-    print(f'In the sensor coordinate system, three angle of theoretical magnetic vectors is {angle12}, {angle23}, {angle31}.')
+    v = np.cross(b1s, b2s) @ b3s
+    print(f'In the sensor coordinate system, three angle of theoretical magnetic vectors is {angle12}, {angle23}, {angle31}, volume is {v}.')
 
     angle12 = b1s @ b2s / (np.linalg.norm(b1s) * np.linalg.norm(b2s))
     angle23 = b2s @ b3s / (np.linalg.norm(b2s) * np.linalg.norm(b3s))
     angle31 = b3s @ b1s / (np.linalg.norm(b3s) * np.linalg.norm(b1s))
-    print(f'In the sensor coordinate system, three angle of sensor magnetic vectors is {angle12}, {angle23}, {angle31}.')
+    v = np.cross(b1s, b2s) @ b3s
+    print(f'In the sensor coordinate system, three angle of sensor magnetic vectors is {angle12}, {angle23}, {angle31}, volume is {v}.')
 
     # angle12 = b1ss @ b2ss / (np.linalg.norm(b1ss) * np.linalg.norm(b2ss))
     # angle23 = b2ss @ b3ss / (np.linalg.norm(b2ss) * np.linalg.norm(b3ss))
@@ -77,7 +79,8 @@ for i in range(4):
                 angle12g = b1sg @ b2sg / (np.linalg.norm(b1sg) * np.linalg.norm(b2sg))
                 angle23g = b2sg @ b3sg / (np.linalg.norm(b2sg) * np.linalg.norm(b3sg))
                 angle31g = b3sg @ b1sg / (np.linalg.norm(b3sg) * np.linalg.norm(b1sg))
-                if ([angle12g, angle23g, angle31g] == [angle12, angle23, angle31]):
+                vg = np.cross(b1sg,b2sg)@b3sg
+                if ([angle12g, angle23g, angle31g,vg] == [angle12, angle23, angle31,v]):
                     print(np.stack([s1,s2,s3]))
                     print(f'In the sensor coordinate system, three angle of guess sensor magnetic vectors is {angle12g}, {angle23g}, {angle31g}.')
                     n+=1
