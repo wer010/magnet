@@ -100,7 +100,10 @@ def get_octant_by_imu(b_a, bs_a, rm):
         e = bs.T - bs_a
         e_list.append(np.sum(e**2))
     e = np.concatenate([e_list])
-    print(e)
+    # print(e)
     oct = np.argmin(e)+1
     return oct
+
+def mse(a,b):
+    return np.mean(np.linalg.norm(a - b,axis=-1), axis=0)
 

@@ -28,12 +28,12 @@ b3_list = []
 q= [np.cos(np.pi/15),np.sin(np.pi/15)/np.sqrt(3),np.sin(np.pi/15)/np.sqrt(3),np.sin(np.pi/15)/np.sqrt(3)]
 q = Quaternion(*q)
 
-for i in range(4):
-    b1_1o = m1.get_bvector(pos0)
-    b2_1o = m2.get_bvector(pos0)
-    b3_1o = m3.get_bvector(pos0)
-    b_1o = np.concatenate([b1_1o, b2_1o, b3_1o], axis=0)
+b1_1o = m1.get_bvector(pos0)
+b2_1o = m2.get_bvector(pos0)
+b3_1o = m3.get_bvector(pos0)
+b_1o = np.concatenate([b1_1o, b2_1o, b3_1o], axis=0)
 
+for i in range(4):
     pos = pos0*sign_symbols[i]
     b1 = m1.get_bvector(pos)
     b2 = m2.get_bvector(pos)
@@ -42,7 +42,7 @@ for i in range(4):
     rm = q.q_to_r()
     b = np.concatenate([b1,b2,b3],axis=0)
     bs = rm@b.T
-    oct = get_octant_by_imu(b_1o,np.abs(bs.T),rm)
+    oct = get_octant_by_imu(b_1o, np.abs(bs.T), rm)
     print(oct)
 
 

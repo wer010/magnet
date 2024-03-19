@@ -1,8 +1,10 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from em_tracking.utils import get_data,get_octant_by_imu
+from em_tracking.utils import get_data,get_octant_by_imu,mse
 from magnetic_field_models import Magnetic_dipole
 from datetime import datetime
+from scipy.spatial.transform import Rotation as R
+
 sign_symbols = np.array([[1,1,1],
                          [-1,1,1],
                          [-1,-1,1],
@@ -28,12 +30,16 @@ def get_pos_by_analytical_solution(b_sensor):
 def get_pos_by_matrix_analysis(b_sensor):
     theory_bt = 2.42e-9
     y = b_sensor.reshape(-1,3,3).transpose([0,2,1])
+    dm = np.diag([1,-1,-1])
     pos = []
+    rm_list = []
     for i in range(y.shape[0]):
         u,s,v = np.linalg.svd(y[i])
         p = np.power(np.sqrt(6)* theory_bt/np.linalg.norm(y[i]),1/3)* v[0]
         pos.append(p)
-    return np.stack(pos), np.linalg.norm(pos,axis=-1)
+        rm = v@dm@u.T
+        rm_list.append(rm)
+    return np.stack(pos), np.linalg.norm(pos,axis=-1),np.stack(rm_list)
 
 def main():
     theory_bt = 2.42e-9
@@ -77,21 +83,36 @@ def main():
     for i in range(pos_ana.shape[0]):
         oct = get_octant_by_imu(b[i], b_sensor[i].reshape(3,3), rm[i].T)
         pos_ana[i] = pos_ana[i]* sign_symbols[oct-1]
-
     end = datetime.now()
+
     mae_ana = np.mean(np.abs(pos_label-pos_ana),axis=0)
     vae_ana = np.var(np.abs(pos_label-pos_ana),axis=0)
+    mse_ana = mse(pos_ana,pos_label)
     print(f'Time consumpts {end - start}s. Mean absolute error is {np.mean(np.abs(r_label - r_ana), axis=0)},{mae_ana}, variance of absolute error is {np.var(np.abs(r_label - r_ana), axis=0)},{vae_ana}')
 
     # calculate the postion by matrix analysis
     start = datetime.now()
-    pos_mat,r_mat = get_pos_by_matrix_analysis(b_sensor_with_sign)
+    pos_mat, r_mat, rm_mat = get_pos_by_matrix_analysis(b_sensor_with_sign)
     x_sign_mat = np.sign(pos_mat[:,0])
     pos_mat = pos_mat*(x_sign*x_sign_mat)[:,np.newaxis]
     end = datetime.now()
     mae_mat = np.mean(np.abs(pos_label - pos_mat), axis=0)
     vae_mat = np.var(np.abs(pos_label - pos_mat), axis=0)
+    mse_mat = mse(pos_mat,pos_label)
+
     print(f'Time consumpts {end - start}s. Mean absolute error is {np.mean(np.abs(r_label - r_mat), axis=0)},{mae_mat}, variance of absolute error is {np.var(np.abs(r_label - r_mat), axis=0)},{vae_mat}')
+
+    ang =[]
+    ang_mat=[]
+    for i in range(rm.shape[0]):
+        ang.append(R.from_matrix(rm[i]).as_euler('zxy', degrees=True))
+        ang_mat.append(R.from_matrix(rm_mat[i]).as_euler('zxy', degrees=True))
+    ang = np.stack(ang)
+    ang_mat = np.stack(ang_mat)
+
+    msre=mse(ang,ang_mat)
+
+    # visualization
     ax1 = plt.subplot(241)
     ax1.plot(r_ana,label='EM ana')
     ax1.plot(r_mat,label='EM mat')
