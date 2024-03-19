@@ -73,10 +73,9 @@ def main():
     b3 = m3.get_bvector(pos_ana)
     b_a = np.concatenate([b1,b2,b3],axis =-1)
     b = b_a.reshape(-1, 3, 3)
-    bs = np.matmul(rm.transpose([0,2,1]), b.transpose([0,2,1]))
 
     for i in range(pos_ana.shape[0]):
-        oct = get_octant_by_imu(b_a[i], b_sensor[i], rm[i])
+        oct = get_octant_by_imu(b[i], b_sensor[i].reshape(3,3), rm[i].T)
         pos_ana[i] = pos_ana[i]* sign_symbols[oct-1]
 
     end = datetime.now()

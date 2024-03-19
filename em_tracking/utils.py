@@ -82,6 +82,12 @@ def get_data(p):
     return ret
 
 def get_octant_by_imu(b_a, bs_a, rm):
+    '''
+    3*3 tensor:param b_a: the magnetic vector in 1st octant. b1,b2,b3 are row vectors
+    3*3 tensor:param bs_a: the absolute magnetic vector sensed by magnetic induced coils
+    3*3 tensor:param rm: rotation matrix. bs = rm@b
+    int:return: the index of octant (1-4)
+    '''
     sign_b = [[[1,1,1],[1,1,1],[1,1,1]],
               [[1,-1,-1],[-1,1,1],[-1,1,1]],
               [[1,1,-1],[1,1,-1],[-1,-1,1]],
@@ -89,11 +95,12 @@ def get_octant_by_imu(b_a, bs_a, rm):
 
     e_list = []
     for i in range(4):
-        b = b_a.reshape(3,3)*sign_b[i]
-        bs = np.abs(np.matmul(rm.T, b.T))
-        e = bs.T.reshape(-1) - bs_a
+        b = b_a*sign_b[i]
+        bs = np.abs(np.matmul(rm, b.T))
+        e = bs.T - bs_a
         e_list.append(np.sum(e**2))
     e = np.concatenate([e_list])
+    print(e)
     oct = np.argmin(e)+1
     return oct
 
