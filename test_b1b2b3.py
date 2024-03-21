@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from rotation import Quaternion
-from em_tracking.utils import get_octant_by_imu
+from em_tracking.tracking_algo import get_octant_by_imu
 sign_symbols = np.array([[1,1,1],
                          [-1,1,1],
                          [-1,-1,1],

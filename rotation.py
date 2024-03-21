@@ -5,6 +5,15 @@ class Quaternion:
     def __init__(self,w,a,b,c):
         self.set_q(w,a,b,c)
 
+    def __mul__(self, other):
+        w = self.w*other.w - self.r@other.r
+        r = self.w*other.r + other.w*self.r + np.cross(self.r,other.r)
+        return Quaternion(w,*r)
+
+    @property
+    def T(self):
+        return Quaternion(self.w,*(self.r*-1))
+
     def set_q(self,w,a,b,c):
         self.w = w
         self.r = np.array([a, b, c])
@@ -15,7 +24,6 @@ class Quaternion:
     def rotation(self,p):
         # ret = (self.w*self.w-self.r@self.r)*p + 2*(self.r@p)*self.r + 2*self.w*np.cross(self.r,p)
         ret = (self.w*self.w-self.r@self.r)*p + 2*(p@self.r).reshape(-1,1)*self.r.reshape(1,-1) + 2*self.w*np.cross(self.r,p)
-
         return ret
 
     def q_to_r(self):
@@ -32,7 +40,11 @@ class Quaternion:
 
 
 if __name__ == '__main__':
+    q = Quaternion(3, 1, -2, 1)
+    q1 = Quaternion(2, -1, 2, 3)
+    q2 = q*q1
 
+    q1q = q.T*q2
     theta = np.pi/4
     q = [np.cos(theta),np.sin(theta)*np.sqrt(3)/3,np.sin(theta)*np.sqrt(3)/3,np.sin(theta)*np.sqrt(3)/3]
 
